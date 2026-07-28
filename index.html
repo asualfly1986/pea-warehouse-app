@@ -621,13 +621,15 @@
                     <input type="number" id="txQty" class="form-control" min="1" value="1" required style="font-size: 20px; font-weight: 700;">
                 </div>
 
-                <!-- PRESET & DYNAMIC REQUESTERS AUTOCOMPLETE DATALIST -->
+                <!-- PRESET & DYNAMIC REQUESTERS DROPDOWN & INPUT FOR MOBILE -->
                 <div class="form-group">
-                    <label class="form-label">ชื่อผู้เบิก / หน่วยงาน (คลิกเลือกหรือพิมพ์ค้นหา)</label>
-                    <input type="text" id="txRequester" list="requestersDatalist" class="form-control" placeholder="🔍 คลิกเลือกหรือพิมพ์ชื่อผู้เบิก..." autocomplete="off" required>
-                    <datalist id="requestersDatalist">
-                        <!-- Dynamic options generated from app.js -->
-                    </datalist>
+                    <label class="form-label">👤 ชื่อผู้เบิก / หน่วยงาน (แตะเลือกจาก Dropdown List)</label>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <select id="txRequesterSelect" class="form-control" style="font-weight: 600; cursor: pointer;" onchange="app.handleRequesterSelectChange(this.value)">
+                            <!-- Dynamic options generated from app.js -->
+                        </select>
+                        <input type="text" id="txRequester" class="form-control" placeholder="✏️ พิมพ์ป้อนชื่อผู้เบิก / หน่วยงานอื่น..." autocomplete="off" style="display: none;">
+                    </div>
                 </div>
 
                 <div class="form-group">

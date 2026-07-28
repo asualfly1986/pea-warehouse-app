@@ -483,10 +483,36 @@ class WarehouseApp {
     }
 
     updateRequestersDatalist() {
-        const datalistEl = document.getElementById("requestersDatalist");
-        if (!datalistEl) return;
+        const selectEl = document.getElementById("txRequesterSelect");
+        const inputEl = document.getElementById("txRequester");
+        if (!selectEl) return;
+
         const requesters = this.db.getRequesters();
-        datalistEl.innerHTML = requesters.map(r => `<option value="${r}"></option>`).join("");
+
+        let optionsHtml = `<option value="" disabled selected>🔻 -- แตะที่นี่เพื่อเลือกรายชื่อผู้เบิก / หน่วยงาน --</option>`;
+        optionsHtml += requesters.map(r => `<option value="${r}">👤 ${r}</option>`).join("");
+        optionsHtml += `<option value="__custom__">✏️ + พิมพ์ป้อนชื่อผู้เบิก / หน่วยงานอื่น...</option>`;
+
+        selectEl.innerHTML = optionsHtml;
+
+        if (inputEl) {
+            inputEl.style.display = "none";
+            inputEl.value = "";
+        }
+    }
+
+    handleRequesterSelectChange(val) {
+        const inputEl = document.getElementById("txRequester");
+        if (!inputEl) return;
+
+        if (val === "__custom__") {
+            inputEl.style.display = "block";
+            inputEl.value = "";
+            inputEl.focus();
+        } else {
+            inputEl.style.display = "none";
+            inputEl.value = val;
+        }
     }
 
     openTransactionModal(item, defaultType = "dispense") {
@@ -557,7 +583,23 @@ class WarehouseApp {
         const type = document.getElementById("txType").value;
         const code = document.getElementById("txCode").value;
         const qty = Number(document.getElementById("txQty").value);
-        const requester = document.getElementById("txRequester").value.trim();
+        
+        const selectEl = document.getElementById("txRequesterSelect");
+        const inputEl = document.getElementById("txRequester");
+        let requester = (inputEl ? inputEl.value : "").trim();
+        
+        if (!requester && selectEl && selectEl.value && selectEl.value !== "__custom__") {
+            requester = selectEl.value.trim();
+        }
+
+        if (!requester) {
+            this.audio.playError();
+            alert("⚠️ กรุณาแตะเลือกรายชื่อผู้เบิก / หน่วยงาน จาก Dropdown List หรือพิมพ์ป้อนข้อมูล");
+            if (selectEl && selectEl.value === "__custom__" && inputEl) inputEl.focus();
+            else if (selectEl) selectEl.focus();
+            return;
+        }
+
         const workOrder = document.getElementById("txWorkOrder").value.trim();
         const note = document.getElementById("txNote").value.trim();
 
