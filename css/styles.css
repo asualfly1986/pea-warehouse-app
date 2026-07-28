@@ -193,12 +193,13 @@ body {
 }
 
 .top-bar {
-    height: 70px;
+    min-height: 70px;
+    height: auto;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 32px;
+    padding: 16px 32px;
     background: var(--bg-glass);
     backdrop-filter: blur(12px);
     position: sticky;
@@ -749,9 +750,13 @@ body {
         display: flex !important;
         flex-direction: column !important;
         align-items: stretch !important;
+        height: auto !important;
+        min-height: auto !important;
+        padding: 12px 14px !important;
         gap: 12px !important;
         margin-bottom: 20px !important;
         position: relative !important;
+        top: auto !important;
         z-index: 10 !important;
         clear: both !important;
     }
