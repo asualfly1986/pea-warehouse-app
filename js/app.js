@@ -168,41 +168,63 @@ class WarehouseApp {
         const file = event.target.files && event.target.files[0];
         if (!file || !this.selectedItemForModal) return;
 
-        if (file.size > 10 * 1024 * 1024) {
-            alert("⚠️ ขนาดไฟล์รูปภาพต้องไม่เกิน 10 MB");
-            event.target.value = "";
-            return;
-        }
-
-        // Verify Owner Password PIN (Aunkung)
-        if (!this.authenticateOwner(`แนบหรือแก้ไขรูปภาพพัสดุ [${this.selectedItemForModal.name}]`)) {
-            event.target.value = "";
-            return;
-        }
-
         const reader = new FileReader();
         reader.onload = (e) => {
-            const base64Url = e.target.result;
-            try {
-                const updatedItem = this.db.updateItemImage(this.selectedItemForModal.code, base64Url);
-                this.selectedItemForModal = updatedItem;
-                this.audio.playScanSuccess();
+            const rawBase64 = e.target.result;
+            const img = new Image();
 
-                // Refresh Thumbnail in Modal
-                const container = document.getElementById("modalItemImageContainer");
-                if (container) {
-                    container.innerHTML = `<img src="${base64Url}" class="item-thumb-img" alt="${updatedItem.name}">`;
-                    container.onclick = () => this.openImageViewerModal(base64Url, `[${updatedItem.code}] ${updatedItem.name}`);
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                let width = img.width;
+                let height = img.height;
+                const maxDim = 480;
+
+                if (width > maxDim || height > maxDim) {
+                    if (width > height) {
+                        height = Math.round((height * maxDim) / width);
+                        width = maxDim;
+                    } else {
+                        width = Math.round((width * maxDim) / height);
+                        height = maxDim;
+                    }
                 }
 
-                alert(`✅ อัปโหลดและบันทึกรูปภาพพัสดุ [${updatedItem.name}] เรียบร้อยแล้ว!`);
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0, width, height);
 
-                if (this.activeTab === "dashboard") this.renderDashboard();
-                if (this.activeTab === "stock") this.renderStockTable();
-                if (this.activeTab === "alerts") this.renderAlertsPage();
-            } catch (err) {
-                alert(`❌ เกิดข้อผิดพลาด: ${err.message}`);
-            }
+                const compressedBase64 = canvas.toDataURL("image/jpeg", 0.75);
+                const itemCode = this.selectedItemForModal.code;
+
+                try {
+                    const updatedItem = this.db.updateItemImage(itemCode, compressedBase64);
+                    this.selectedItemForModal = updatedItem || { ...this.selectedItemForModal, imageUrl: compressedBase64 };
+                    this.audio.playScanSuccess();
+
+                    const container = document.getElementById("modalItemImageContainer");
+                    if (container) {
+                        container.innerHTML = `<img src="${compressedBase64}" class="item-thumb-img" alt="${this.selectedItemForModal.name}">`;
+                        container.onclick = () => this.openImageViewerModal(compressedBase64, `[${itemCode}] ${this.selectedItemForModal.name}`);
+                    }
+
+                    alert(`✅ ย่อขนาดรูปภาพและบันทึกรูปถ่ายใหม่ของพัสดุ [${this.selectedItemForModal.name}] เรียบร้อยแล้ว!`);
+
+                    this.closeImageViewerModal();
+                    if (this.activeTab === "dashboard") this.renderDashboard();
+                    if (this.activeTab === "stock") this.renderStockTable();
+                    if (this.activeTab === "alerts") this.renderAlertsPage();
+                } catch (err) {
+                    this.audio.playError();
+                    alert(`❌ ไม่สามารถบันทึกรูปภาพได้: พื้นที่จัดเก็บความจำในเบราว์เซอร์เต็ม คุณสามารถกดปุ่ม "รีเซตรูปภาพพัสดุทั้งหมด" ในหน้าตั้งค่าเพื่อคืนพื้นที่ได้ครับ`);
+                }
+            };
+
+            img.onerror = () => {
+                alert("⚠️ ไม่สามารถอ่านไฟล์รูปภาพได้ กรุณาเลือกไฟล์รูปภาพที่เป็น JPG หรือ PNG");
+            };
+
+            img.src = rawBase64;
         };
         reader.readAsDataURL(file);
     }
@@ -1177,33 +1199,6 @@ class WarehouseApp {
         }
     }
 
-    handleItemPhotoUpload(event) {
-        const file = event.target.files && event.target.files[0];
-        if (!file) return;
-
-        if (!this.selectedItemForModal) {
-            alert("⚠️ กรุณาเลือกรายการพัสดุสำหรับอัปเดตรูปภาพ");
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const base64Data = e.target.result;
-            const itemCode = this.selectedItemForModal.code;
-            this.db.updateItemImage(itemCode, base64Data);
-            this.selectedItemForModal.imageUrl = base64Data;
-            this.audio.playScanSuccess();
-            alert(`✅ อัปเดตรูปภาพพัสดุ [${this.selectedItemForModal.name}] เรียบร้อยแล้ว`);
-
-            // Refresh UI
-            this.closeImageViewerModal();
-            this.openTransactionModal(this.selectedItemForModal, document.getElementById("txType")?.value || "dispense");
-            if (this.activeTab === "dashboard") this.renderDashboard();
-            if (this.activeTab === "stock") this.renderStockTable();
-            if (this.activeTab === "alerts") this.renderAlertsPage();
-        };
-        reader.readAsDataURL(file);
-    }
 
     handleResetSingleItemPhoto() {
         if (!this.selectedItemForModal) return;
