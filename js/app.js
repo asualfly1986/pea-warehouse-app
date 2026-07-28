@@ -2162,10 +2162,6 @@ class WarehouseApp {
     }
 
     triggerImportLocationQuantities() {
-        if (!this.authenticateOwner("นำเข้าไฟล์ข้อมูลยอด MB52 / WMS / sloc 0023 (1-99 รายการ)")) {
-            return;
-        }
-
         const fileInput = document.getElementById("locationImportFileInput");
         if (fileInput) {
             fileInput.value = "";
@@ -2215,7 +2211,7 @@ class WarehouseApp {
                     } else {
                         inQuotes = !inQuotes;
                     }
-                } else if ((char === ',' || char === '\t') && !inQuotes) {
+                } else if ((char === ',' || char === ';' || char === '\t') && !inQuotes) {
                     result.push(current.trim());
                     current = '';
                 } else {
@@ -2228,77 +2224,134 @@ class WarehouseApp {
 
         const cleanNum = (val) => {
             if (val === undefined || val === null || val === '') return undefined;
-            const num = Number(String(val).replace(/,/g, '').trim());
-            return isNaN(num) ? 0 : num;
+            const str = String(val).replace(/["'\s,]/g, '').trim();
+            if (str === '') return undefined;
+            const num = Number(str);
+            return isNaN(num) ? undefined : num;
         };
 
         const reader = new FileReader();
         reader.onload = (e) => {
-            const content = e.target.result;
+            const buffer = e.target.result;
+            let content = "";
+
+            // Auto-detect & Fallback Encoding (UTF-8 -> TIS-620 -> Windows-874)
+            try {
+                const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
+                content = utf8Decoder.decode(buffer);
+            } catch (utfErr) {
+                try {
+                    const tisDecoder = new TextDecoder("tis-620");
+                    content = tisDecoder.decode(buffer);
+                } catch (tisErr) {
+                    const winDecoder = new TextDecoder("windows-874");
+                    content = winDecoder.decode(buffer);
+                }
+            }
+
             try {
                 const lines = content.split(/\r?\n/);
                 const batchData = [];
+                let codeIdx = -1, seqIdx = -1, curIdx = -1, mb52Idx = -1, wmsIdx = -1, kk23Idx = -1;
+
+                // Smart Header Auto-Detection
+                if (lines.length > 0) {
+                    const firstLineParts = parseCSVLine(lines[0]);
+                    firstLineParts.forEach((part, colIdx) => {
+                        const lower = part.toLowerCase();
+                        if (lower.includes("ลำดับ") || lower.includes("seq") || lower.includes("no.")) seqIdx = colIdx;
+                        if (lower.includes("รหัส") || lower.includes("code") || lower.includes("mat")) codeIdx = colIdx;
+                        if (lower.includes("2601") || lower.includes("คงเหลือจริง") || lower.includes("กระดาน")) curIdx = colIdx;
+                        if (lower.includes("mb52") || lower.includes("mb-52")) mb52Idx = colIdx;
+                        if (lower.includes("wms")) wmsIdx = colIdx;
+                        if (lower.includes("0023") || lower.includes("กฟจ") || lower.includes("ขอนแก่น")) kk23Idx = colIdx;
+                    });
+                }
+
+                const hasHeaderMap = (codeIdx !== -1 || mb52Idx !== -1 || wmsIdx !== -1);
 
                 lines.forEach((line, idx) => {
                     const cleanLine = line.trim();
                     if (!cleanLine) return;
                     
                     const parts = parseCSVLine(cleanLine);
-                    // Skip header line if first column contains text like "ลำดับ" or "รหัสพัสดุ"
-                    if (idx === 0 && (isNaN(parts[0]) && isNaN(parts[1]))) return;
+                    
+                    // Skip header line
+                    if (idx === 0) {
+                        const col0 = parts[0] ? parts[0].toLowerCase() : "";
+                        const col1 = parts[1] ? parts[1].toLowerCase() : "";
+                        if (col0.includes("ลำดับ") || col0.includes("รหัส") || col1.includes("รหัส") || col0.includes("seq") || col0.includes("code")) {
+                            return;
+                        }
+                    }
 
-                    // Support Column Schemes:
-                    // 9 Columns: seq, code, name, unit, standard, currentQty2601, mb52Qty, wmsQty, kk23Qty
-                    // 8 Columns (User Google Sheet format): seq, code, name, unit, standard, currentQty2601, mb52Qty, wms_or_kk23Qty
-                    // 6 Columns: seq, code, name, mb52Qty, wmsQty, kk23Qty
-                    // 4 Columns: seq_or_code, mb52Qty, wmsQty, kk23Qty
+                    if (hasHeaderMap) {
+                        const codeVal = codeIdx !== -1 ? parts[codeIdx] : null;
+                        const seqVal = seqIdx !== -1 ? parts[seqIdx] : parts[0];
+                        const curVal = curIdx !== -1 ? cleanNum(parts[curIdx]) : undefined;
+                        const mb52Val = mb52Idx !== -1 ? cleanNum(parts[mb52Idx]) : undefined;
+                        const wmsVal = wmsIdx !== -1 ? cleanNum(parts[wmsIdx]) : undefined;
+                        const kk23Val = kk23Idx !== -1 ? cleanNum(parts[kk23Idx]) : undefined;
 
-                    if (parts.length >= 9) {
-                        batchData.push({
-                            seq: parts[0],
-                            code: parts[1],
-                            currentQty: cleanNum(parts[5]),
-                            mb52Qty: cleanNum(parts[6]),
-                            wmsQty: cleanNum(parts[7]),
-                            kk23Qty: cleanNum(parts[8])
-                        });
-                    } else if (parts.length >= 8) {
-                        batchData.push({
-                            seq: parts[0],
-                            code: parts[1],
-                            currentQty: cleanNum(parts[5]),
-                            mb52Qty: cleanNum(parts[6]),
-                            wmsQty: cleanNum(parts[7]),
-                            kk23Qty: cleanNum(parts[7])
-                        });
-                    } else if (parts.length >= 6) {
-                        batchData.push({
-                            seq: parts[0],
-                            code: parts[1],
-                            mb52Qty: cleanNum(parts[3]),
-                            wmsQty: cleanNum(parts[4]),
-                            kk23Qty: cleanNum(parts[5])
-                        });
-                    } else if (parts.length >= 4) {
-                        const isCode = parts[0].length >= 8;
-                        batchData.push({
-                            seq: isCode ? null : parts[0],
-                            code: isCode ? parts[0] : null,
-                            mb52Qty: cleanNum(parts[1]),
-                            wmsQty: cleanNum(parts[2]),
-                            kk23Qty: cleanNum(parts[3])
-                        });
+                        if (codeVal || seqVal) {
+                            batchData.push({
+                                seq: seqVal,
+                                code: codeVal,
+                                currentQty: curVal,
+                                mb52Qty: mb52Val,
+                                wmsQty: wmsVal,
+                                kk23Qty: kk23Val
+                            });
+                        }
+                    } else {
+                        // Fallback Scheme Matching
+                        if (parts.length >= 9) {
+                            batchData.push({
+                                seq: parts[0],
+                                code: parts[1],
+                                currentQty: cleanNum(parts[5]),
+                                mb52Qty: cleanNum(parts[6]),
+                                wmsQty: cleanNum(parts[7]),
+                                kk23Qty: cleanNum(parts[8])
+                            });
+                        } else if (parts.length >= 8) {
+                            batchData.push({
+                                seq: parts[0],
+                                code: parts[1],
+                                currentQty: cleanNum(parts[5]),
+                                mb52Qty: cleanNum(parts[6]),
+                                wmsQty: cleanNum(parts[7]),
+                                kk23Qty: cleanNum(parts[7])
+                            });
+                        } else if (parts.length >= 6) {
+                            batchData.push({
+                                seq: parts[0],
+                                code: parts[1],
+                                mb52Qty: cleanNum(parts[3]),
+                                wmsQty: cleanNum(parts[4]),
+                                kk23Qty: cleanNum(parts[5])
+                            });
+                        } else if (parts.length >= 4) {
+                            const isCode = parts[0] && parts[0].length >= 8;
+                            batchData.push({
+                                seq: isCode ? null : parts[0],
+                                code: isCode ? parts[0] : null,
+                                mb52Qty: cleanNum(parts[1]),
+                                wmsQty: cleanNum(parts[2]),
+                                kk23Qty: cleanNum(parts[3])
+                            });
+                        }
                     }
                 });
 
                 if (batchData.length === 0) {
-                    alert("⚠️ ไม่พบข้อมูลที่ถูกต้องในไฟล์ กรุณาตรวจสอบรูปแบบไฟล์ CSV");
+                    alert("⚠️ ไม่พบข้อมูลที่ถูกต้องในไฟล์ กรุณาตรวจสอบรูปแบบไฟล์ CSV หรือดาวน์โหลดแบบฟอร์มนำเข้าตัวอย่างครับ");
                     return;
                 }
 
                 const updatedCount = this.db.importLocationQuantitiesBatch(batchData);
                 this.audio.playScanSuccess();
-                alert(`✅ นำเข้าและอัปเดตข้อมูลพัสดุ ${updatedCount} รายการตามไฟล์เรียบร้อยแล้ว!`);
+                alert(`✅ นำเข้าและอัปเดตข้อมูลพัสดุสำเร็จ ${updatedCount} รายการเรียบร้อยแล้ว!`);
 
                 if (this.activeTab === "dashboard") this.renderDashboard();
                 if (this.activeTab === "stock") this.renderStockTable();
@@ -2306,10 +2359,10 @@ class WarehouseApp {
 
             } catch (err) {
                 this.audio.playError();
-                alert(`❌ เกิดข้อผิดพลาดในการนำเข้าไฟล์: ${err.message}`);
+                alert(`❌ เกิดข้อผิดพลาดในการอ่านไฟล์: ${err.message}`);
             }
         };
-        reader.readAsText(file, "UTF-8");
+        reader.readAsArrayBuffer(file);
     }
 
     resetSystemData() {
