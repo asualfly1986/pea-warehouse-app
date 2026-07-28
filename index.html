@@ -8,9 +8,10 @@
     <!-- CSS Dependencies -->
     <link rel="stylesheet" href="css/styles.css">
     
-    <!-- JS Dependencies (Chart.js & JsBarcode via CDN) -->
+    <!-- JS Dependencies (Chart.js, JsBarcode & Html5Qrcode Camera Scanner via CDN) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -235,13 +236,38 @@
 
             <!-- PAGE 2: SCAN & TRANSACTION -->
             <div class="page-container" id="page-scan">
-                <div class="scanner-box">
+                <div class="scanner-box" style="max-width: 600px; margin: 0 auto;">
                     <h2 style="font-size: 24px; margin-bottom: 8px;">📷 ยิงสแกนบาร์โค้ด หรือป้อนรหัสพัสดุ</h2>
-                    <p style="color: var(--text-secondary); margin-bottom: 24px;">รองรับปืนสแกนเนอร์ USB พิมพ์รหัสพัสดุ 10 หลักแล้วกด Enter เพื่อเบิกจ่ายเรียลไทม์</p>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">รองรับทั้งสแกนเนอร์ USB, พิมพ์รหัสพัสดุ และ **ใช้กล้องถ่ายรูปสแกนบาร์โค้ดบนโทรศัพท์มือถือ**</p>
                     
-                    <div class="scan-input-group">
-                        <input type="text" id="barcodeInput" class="scan-input" placeholder="ยิงบาร์โค้ด หรือพิมพ์รหัสพัสดุ 10 หลัก..." autofocus onkeypress="if(event.key==='Enter') app.handleManualScanInput()">
+                    <!-- Manual / USB Scanner Input -->
+                    <div class="scan-input-group" style="margin-bottom: 20px;">
+                        <input type="text" id="barcodeInput" class="scan-input" placeholder="ยิงบาร์โค้ด หรือพิมพ์รหัสพัสดุ..." autofocus onkeypress="if(event.key==='Enter') app.handleManualScanInput()">
                         <button class="btn btn-primary" onclick="app.handleManualScanInput()">ค้นหา / เบิก</button>
+                    </div>
+
+                    <!-- Mobile Camera Scanner Controls -->
+                    <div style="border-top: 1px solid var(--border-color); padding-top: 20px; text-align: center;">
+                        <h4 style="font-size: 15px; color: var(--accent-primary); margin-bottom: 12px;">📱 ระบบสแกนด้วยกล้องมือถือ / เว็บแคม</h4>
+                        <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px;">
+                            <button id="btnStartCamera" class="btn btn-success" onclick="app.startCameraScanner()" style="padding: 10px 20px; font-weight: bold;">
+                                📷 เปิดกล้องสแกนบาร์โค้ด
+                            </button>
+                            <button id="btnStopCamera" class="btn btn-outline" onclick="app.stopCameraScanner()" style="display: none; padding: 10px 16px; color: #ef4444; border-color: #ef4444;">
+                                ⏹️ ปิดกล้อง
+                            </button>
+                            <button id="btnSwitchCamera" class="btn btn-outline" onclick="app.switchCameraFacingMode()" style="display: none; padding: 10px 16px;">
+                                🔄 สลับกล้อง (หน้า/หลัง)
+                            </button>
+                        </div>
+
+                        <!-- Camera Viewfinder Box -->
+                        <div id="cameraScannerContainer" style="display: none; position: relative; width: 100%; max-width: 480px; margin: 0 auto; border-radius: 12px; overflow: hidden; border: 3px solid var(--accent-primary); background: #000; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+                            <div id="cameraScannerView" style="width: 100%;"></div>
+                            <div id="cameraScanStatus" style="position: absolute; bottom: 10px; left: 0; right: 0; background: rgba(15, 23, 42, 0.85); color: #34d399; font-size: 12px; padding: 6px 12px; font-weight: 600; text-align: center; z-index: 10;">
+                                🎯 กำลังส่องบาร์โค้ด... กรุณาส่องบาร์โค้ดให้อยู่ในกรอบ
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -528,6 +554,9 @@
                         <button class="btn btn-primary" onclick="app.exportBackupData()">
                             💾 ส่งออกไฟล์สำรองข้อมูล (Owner Protected Backup JSON)
                         </button>
+                        <button class="btn btn-warning" style="background: #f59e0b; color: #ffffff;" onclick="app.resetAllItemPhotos()">
+                            🖼️ รีเซตรูปภาพพัสดุทั้งหมดกลับเป็นค่าเริ่มต้น (Reset Photos)
+                        </button>
                         <button class="btn btn-danger" onclick="app.resetSystemData()">
                             🔄 คืนค่าข้อมูลพัสดุตั้งต้น (Owner Factory Reset)
                         </button>
@@ -560,14 +589,17 @@
             </div>
 
             <!-- Item Photo Management Section (Owner Protected: Aunkung) -->
-            <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
                 <div>
                     <div style="font-size: 13px; font-weight: 700; color: var(--accent-primary);">🖼️ รูปภาพรายการพัสดุ</div>
-                    <div style="font-size: 12px; color: var(--text-secondary);">ต้องยืนยันรหัสผ่านเจ้าของสิทธิ์เพื่อแนบ/เปลี่ยนรูปภาพ</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">แนบรูปถ่ายใหม่ หรือคืนค่ารูปภาพเป็นรูปหลักเริ่มต้นได้ทันที</div>
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button type="button" class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" onclick="app.triggerItemPhotoUpload()">
-                        📷 เลือกภาพ
+                        📷 เลือกรูปใหม่
+                    </button>
+                    <button type="button" class="btn btn-outline" style="padding: 6px 12px; font-size: 12px; color: #ef4444; border-color: #ef4444;" onclick="app.handleResetSingleItemPhoto()">
+                        🔄 คืนค่ารูปเดิม
                     </button>
                     <input type="file" id="itemFileInput" accept="image/*" style="display: none;" onchange="app.handleItemPhotoUpload(event)">
                 </div>
@@ -622,6 +654,10 @@
             <button class="close-btn" style="position: absolute; top: -40px; right: 0; color: #ffffff; font-size: 32px;" onclick="app.closeImageViewerModal()">&times;</button>
             <img id="imageViewerImg" class="image-preview-modal-content" src="" alt="รูปพัสดุ">
             <div id="imageViewerCaption" style="margin-top: 12px; font-size: 15px; font-weight: 600; color: #ffffff; background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: var(--radius-md);"></div>
+            <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-primary" style="font-size: 13px; padding: 8px 16px;" onclick="app.triggerItemPhotoUpload()">📷 เปลี่ยนเป็นรูปใหม่</button>
+                <button class="btn btn-danger" style="font-size: 13px; padding: 8px 16px;" onclick="app.handleResetSingleItemPhoto()">🔄 คืนค่ารูปเดิมรายการนี้</button>
+            </div>
         </div>
     </div>
 
