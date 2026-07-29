@@ -840,13 +840,13 @@ class WarehouseApp {
                                 ${item.name}${noticeHtml}
                             </td>
                             <td><span class="badge ${status.badgeClass}">${status.label}</span></td>
+                            <td style="background: rgba(16, 185, 129, 0.15) !important; color: #34d399 !important; font-weight: 700; text-align: center; border-left: 1px dashed rgba(16, 185, 129, 0.3); border-right: 1px dashed rgba(16, 185, 129, 0.3);">${item.standard} ${item.unit}</td>
                             <td style="font-weight: 700; color: ${colorStyle}">${item.currentQty} ${item.unit}</td>
                             <td onclick="event.stopPropagation(); app.openLocationEditModal('${item.code}')" style="font-weight: 600; cursor: pointer; color: var(--accent-primary);" title="คลิกเพื่อปรับยอด MB52 / WMS / sloc 0023 (เฉพาะ Owner)">${item.mb52Qty || 0} <span style="font-size: 11px; color: var(--text-secondary);">${item.unit} ✏️</span></td>
                             <td onclick="event.stopPropagation(); app.openLocationEditModal('${item.code}')" style="font-weight: 600; cursor: pointer; color: var(--accent-primary);" title="คลิกเพื่อปรับยอด MB52 / WMS / sloc 0023 (เฉพาะ Owner)">${item.wmsQty || 0} <span style="font-size: 11px; color: var(--text-secondary);">${item.unit} ✏️</span></td>
                             <td onclick="event.stopPropagation()">${this.renderWmsVsMb52Cell(item)}</td>
                             <td onclick="event.stopPropagation(); app.openLocationEditModal('${item.code}')" style="font-weight: 600; cursor: pointer; color: var(--accent-primary);" title="คลิกเพื่อปรับยอด MB52 / WMS / sloc 0023 (เฉพาะ Owner)">${item.kk23Qty || 0} <span style="font-size: 11px; color: var(--text-secondary);">${item.unit} ✏️</span></td>
                             <td>${compHtml}</td>
-                            <td>${item.standard} ${item.unit}</td>
                             <td style="font-weight: 700; color: ${colorStyle}">${status.pct}%</td>
                             <td onclick="event.stopPropagation()">
                                 <div style="display: flex; gap: 4px;">
@@ -1311,13 +1311,13 @@ class WarehouseApp {
                         <div style="font-size: 12px; color: var(--text-secondary);">${item.category || 'พัสดุทั่วไป'}</div>
                     </td>
                     <td><span class="badge ${status.badgeClass}">${status.label}</span></td>
+                    <td style="background: rgba(16, 185, 129, 0.15) !important; color: #34d399 !important; font-weight: 700; text-align: center; border-left: 1px dashed rgba(16, 185, 129, 0.3); border-right: 1px dashed rgba(16, 185, 129, 0.3);">${item.standard} ${item.unit}</td>
                     <td style="font-size: 16px; font-weight: 700;">${item.currentQty} <span style="font-size: 12px; color: var(--text-secondary);">${item.unit}</span></td>
                     <td onclick="event.stopPropagation(); app.openLocationEditModal('${item.code}')" style="font-weight: 600; cursor: pointer; color: var(--accent-primary);" title="คลิกเพื่อปรับยอด MB52 / WMS / sloc 0023 (เฉพาะ Owner)">${item.mb52Qty || 0} <span style="font-size: 11px; color: var(--text-secondary);">${item.unit} ✏️</span></td>
                     <td onclick="event.stopPropagation(); app.openLocationEditModal('${item.code}')" style="font-weight: 600; cursor: pointer; color: var(--accent-primary);" title="คลิกเพื่อปรับยอด MB52 / WMS / sloc 0023 (เฉพาะ Owner)">${item.wmsQty || 0} <span style="font-size: 11px; color: var(--text-secondary);">${item.unit} ✏️</span></td>
                     <td onclick="event.stopPropagation()">${this.renderWmsVsMb52Cell(item)}</td>
                     <td onclick="event.stopPropagation(); app.openLocationEditModal('${item.code}')" style="font-weight: 600; cursor: pointer; color: var(--accent-primary);" title="คลิกเพื่อปรับยอด MB52 / WMS / sloc 0023 (เฉพาะ Owner)">${item.kk23Qty || 0} <span style="font-size: 11px; color: var(--text-secondary);">${item.unit} ✏️</span></td>
                     <td>${this.renderLocationComparisonCell(item)}</td>
-                    <td>${item.standard} ${item.unit}</td>
                     <td style="font-weight: 700;">${status.pct}%</td>
                     <td onclick="event.stopPropagation()">
                         <div style="display: flex; gap: 4px;">
@@ -1371,13 +1371,13 @@ class WarehouseApp {
                         ${item.name}${noticeHtml}
                     </td>
                     <td><span class="badge ${status.badgeClass}">${status.label}</span></td>
+                    <td style="background: rgba(16, 185, 129, 0.15) !important; color: #34d399 !important; font-weight: 700; text-align: center; border-left: 1px dashed rgba(16, 185, 129, 0.3); border-right: 1px dashed rgba(16, 185, 129, 0.3);">${std} ${item.unit}</td>
                     <td style="font-weight: 700; color: ${status.key==='out_of_stock'?'#ef4444':'#f97316'};">${current} ${item.unit}</td>
                     <td onclick="event.stopPropagation(); app.openLocationEditModal('${item.code}')" style="font-weight: 600; cursor: pointer; color: var(--accent-primary);">${item.mb52Qty || 0} <span style="font-size: 11px; color: var(--text-secondary);">${item.unit} ✏️</span></td>
                     <td onclick="event.stopPropagation(); app.openLocationEditModal('${item.code}')" style="font-weight: 600; cursor: pointer; color: var(--accent-primary);">${item.wmsQty || 0} <span style="font-size: 11px; color: var(--text-secondary);">${item.unit} ✏️</span></td>
                     <td onclick="event.stopPropagation()">${this.renderWmsVsMb52Cell(item)}</td>
                     <td onclick="event.stopPropagation(); app.openLocationEditModal('${item.code}')" style="font-weight: 600; cursor: pointer; color: var(--accent-primary);">${item.kk23Qty || 0} <span style="font-size: 11px; color: var(--text-secondary);">${item.unit} ✏️</span></td>
                     <td>${this.renderLocationComparisonCell(item)}</td>
-                    <td>${std} ${item.unit}</td>
                     <td style="font-weight: 700; color: #f97316;">${status.pct}% (ขาดอีก ${deficit} ${item.unit})</td>
                     <td onclick="event.stopPropagation()">
                         <div style="display: flex; gap: 4px;">
