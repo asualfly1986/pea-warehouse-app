@@ -609,7 +609,7 @@
                 <input type="hidden" id="txCode">
                 <div class="form-group">
                     <label class="form-label">ประเภทการทำรายการ</label>
-                    <select id="txType" class="form-control" style="font-weight: 700;">
+                    <select id="txType" class="form-control" style="font-weight: 700;" onchange="app.handleTxTypeChange(this.value)">
                         <option value="dispense">📤 เบิกจ่ายพัสดุ (ตัดยอดสต็อก)</option>
                         <option value="receive">📥 รับเข้า / เติมพัสดุ (เพิ่มยอดสต็อก)</option>
                         <option value="audit">📋 ปรับยอดจากการตรวจนับ (สิทธิ์ Owner: ต้องกรอกรหัสผ่านทุกครั้ง)</option>
@@ -618,7 +618,7 @@
 
                 <div class="form-group">
                     <label class="form-label">จำนวนที่ทำรายการ (<span id="txQtyUnit"></span>)</label>
-                    <input type="number" id="txQty" class="form-control" min="1" value="1" required style="font-size: 20px; font-weight: 700;">
+                    <input type="number" id="txQty" class="form-control" min="0" value="1" required style="font-size: 20px; font-weight: 700;" placeholder="ป้อนจำนวน...">
                 </div>
 
                 <!-- PRESET & DYNAMIC REQUESTERS DROPDOWN & INPUT FOR MOBILE -->

@@ -584,9 +584,16 @@ class WarehouseApp {
             txTypeSelect.value = defaultType;
         }
 
+        this.handleTxTypeChange(txTypeSelect.value);
+
+        if (txTypeSelect.value === "audit") {
+            document.getElementById("txQty").value = String(item.currentQty);
+        } else {
+            document.getElementById("txQty").value = "1";
+        }
+
         this.updateRequestersDatalist();
 
-        document.getElementById("txQty").value = "1";
         document.getElementById("txQtyUnit").textContent = item.unit;
         document.getElementById("txRequester").value = "";
         document.getElementById("txWorkOrder").value = "";
@@ -594,6 +601,22 @@ class WarehouseApp {
 
         const modal = document.getElementById("txModal");
         if (modal) modal.classList.add("active");
+    }
+
+    handleTxTypeChange(type) {
+        const qtyInput = document.getElementById("txQty");
+        if (!qtyInput) return;
+
+        if (type === "audit") {
+            qtyInput.setAttribute("min", "0");
+            qtyInput.placeholder = "ป้อนยอดคงเหลือจริงจากการตรวจนับ (ใส่ 0 ได้)...";
+        } else {
+            qtyInput.setAttribute("min", "1");
+            qtyInput.placeholder = "ป้อนจำนวนที่ต้องการทำรายการ...";
+            if (Number(qtyInput.value) <= 0) {
+                qtyInput.value = "1";
+            }
+        }
     }
 
     closeModals() {
@@ -604,7 +627,31 @@ class WarehouseApp {
     handleTransactionSubmit() {
         const type = document.getElementById("txType").value;
         const code = document.getElementById("txCode").value;
-        const qty = Number(document.getElementById("txQty").value);
+        const qtyRaw = document.getElementById("txQty").value;
+        const qty = Number(qtyRaw);
+
+        if (qtyRaw === "" || isNaN(qty)) {
+            this.audio.playError();
+            alert("⚠️ กรุณาระบุจำนวนที่ต้องการทำรายการ");
+            document.getElementById("txQty").focus();
+            return;
+        }
+
+        if (type === "audit") {
+            if (qty < 0) {
+                this.audio.playError();
+                alert("⚠️ ยอดคงเหลือพัสดุจากการตรวจนับต้องไม่ติดลบ (สามารถใส่ค่า 0 หรือมากกว่าได้)");
+                document.getElementById("txQty").focus();
+                return;
+            }
+        } else {
+            if (qty <= 0) {
+                this.audio.playError();
+                alert("⚠️ จำนวนพัสดุสำหรับการเบิกจ่ายหรือรับเข้าต้องมากกว่า 0");
+                document.getElementById("txQty").focus();
+                return;
+            }
+        }
         
         const selectEl = document.getElementById("txRequesterSelect");
         const inputEl = document.getElementById("txRequester");
@@ -2171,26 +2218,85 @@ class WarehouseApp {
 
     downloadBatchImportTemplate() {
         const items = this.db.getItems();
-        let csvContent = "ลำดับ,รหัสพัสดุ,รายการพัสดุ,หน่วยนับ,เกณฑ์มาตรฐาน,คงเหลือจริง(storage location 2601),คงเหลือใน MB52,คงเหลือใน WMS,คลังกฟจ.ขอนแก่น (sloc 0023)\n";
 
-        items.forEach((item, index) => {
+        let tableRows = items.map((item, index) => {
             const seq = index + 1;
             const code = item.code;
-            const name = `"${item.name.replace(/"/g, '""')}"`;
+            const name = (item.name || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             const unit = item.unit || "ชุด";
-            const std = item.standard || 0;
-            const cur = item.currentQty || 0;
-            const mb52 = item.mb52Qty || 0;
-            const wms = item.wmsQty || 0;
-            const kk23 = item.kk23Qty || 0;
+            const std = item.standard !== undefined ? item.standard : 0;
+            const cur = item.currentQty !== undefined ? item.currentQty : 0;
+            const mb52 = item.mb52Qty !== undefined ? item.mb52Qty : 0;
+            const wms = item.wmsQty !== undefined ? item.wmsQty : 0;
+            const kk23 = item.kk23Qty !== undefined ? item.kk23Qty : 0;
 
-            csvContent += `${seq},${code},${name},${unit},${std},${cur},${mb52},${wms},${kk23}\n`;
-        });
+            return `
+                <tr>
+                    <td style="text-align: center;">${seq}</td>
+                    <td style="mso-number-format:'\\@'; text-align: center; font-weight: bold;">${code}</td>
+                    <td>${name}</td>
+                    <td style="text-align: center;">${unit}</td>
+                    <td style="background-color: #d1fae5 !important; color: #065f46 !important; font-weight: bold; text-align: right; mso-number-format:'\\#\\,\\#\\#0';">${std}</td>
+                    <td style="mso-number-format:'\\#\\,\\#\\#0'; text-align: right;">${cur}</td>
+                    <td style="mso-number-format:'\\#\\,\\#\\#0'; text-align: right;">${mb52}</td>
+                    <td style="mso-number-format:'\\#\\,\\#\\#0'; text-align: right;">${wms}</td>
+                    <td style="mso-number-format:'\\#\\,\\#\\#0'; text-align: right;">${kk23}</td>
+                </tr>
+            `;
+        }).join("");
 
-        const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+        const excelContent = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+            <meta charset="utf-8">
+            <!--[if gte mso 9]>
+            <xml>
+             <x:ExcelWorkbook>
+              <x:ExcelWorksheets>
+               <x:ExcelWorksheet>
+                <x:Name>แบบฟอร์มนำเข้าพัสดุ</x:Name>
+                <x:WorksheetOptions>
+                 <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+               </x:ExcelWorksheet>
+              </x:ExcelWorksheets>
+             </x:ExcelWorkbook>
+            </xml>
+            <![endif]-->
+            <style>
+                table { border-collapse: collapse; width: 100%; font-family: 'Sarabun', 'Tahoma', sans-serif; font-size: 11pt; }
+                th { background-color: #1e293b; color: #ffffff; font-weight: bold; border: 0.5pt solid #94a3b8; padding: 6px 10px; text-align: center; }
+                td { border: 0.5pt solid #cbd5e1; padding: 5px 8px; vertical-align: middle; }
+                th.std-header { background-color: #10b981 !important; color: #ffffff !important; font-weight: bold; text-align: center; }
+            </style>
+            </head>
+            <body>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ลำดับ</th>
+                        <th>รหัสพัสดุ</th>
+                        <th>รายการพัสดุ</th>
+                        <th>หน่วยนับ</th>
+                        <th class="std-header">เกณฑ์มาตรฐาน</th>
+                        <th>คงเหลือจริง(storage location 2601)</th>
+                        <th>คงเหลือใน MB52</th>
+                        <th>คงเหลือใน WMS</th>
+                        <th>คลังกฟจ.ขอนแก่น (sloc 0023)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableRows}
+                </tbody>
+            </table>
+            </body>
+            </html>
+        `;
+
+        const blob = new Blob(["\uFEFF" + excelContent], { type: "application/vnd.ms-excel;charset=utf-8;" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `แบบฟอร์มนำเข้ายอดพัสดุ_MB52_WMS_0023.csv`;
+        link.download = `แบบฟอร์มนำเข้ายอดพัสดุ_MB52_WMS.xls`;
         link.click();
     }
 
@@ -2247,6 +2353,25 @@ class WarehouseApp {
                     const winDecoder = new TextDecoder("windows-874");
                     content = winDecoder.decode(buffer);
                 }
+            }
+
+            // Support HTML/XML Excel Table parsing (.xls file uploaded back)
+            if (content.toLowerCase().includes("<table") || content.toLowerCase().includes("<tr")) {
+                try {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(content, "text/html");
+                    const trs = doc.querySelectorAll("tr");
+                    const extractedLines = [];
+                    trs.forEach(tr => {
+                        const cellVals = Array.from(tr.querySelectorAll("th, td")).map(td => td.textContent.trim());
+                        if (cellVals.length > 0) {
+                            extractedLines.push(cellVals.join("\t"));
+                        }
+                    });
+                    if (extractedLines.length > 0) {
+                        content = extractedLines.join("\n");
+                    }
+                } catch(e) {}
             }
 
             try {
