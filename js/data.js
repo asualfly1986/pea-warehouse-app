@@ -389,12 +389,52 @@ class StockDatabase {
         localStorage.setItem(this.STORAGE_KEY_AUDIT_PERM, enabled ? "true" : "false");
     }
 
+    async syncFromCloudflare() {
+        try {
+            const res = await fetch('/api/sync');
+            if (res.ok) {
+                const cloudData = await res.json();
+                if (cloudData && cloudData.items && Array.isArray(cloudData.items) && cloudData.items.length > 0) {
+                    localStorage.setItem(this.STORAGE_KEY_ITEMS, JSON.stringify(cloudData.items));
+                    if (cloudData.logs) localStorage.setItem(this.STORAGE_KEY_LOGS, JSON.stringify(cloudData.logs));
+                    if (cloudData.requesters) localStorage.setItem(this.STORAGE_KEY_REQUESTERS, JSON.stringify(cloudData.requesters));
+                    if (cloudData.auditPerm !== undefined) localStorage.setItem(this.STORAGE_KEY_AUDIT_PERM, String(cloudData.auditPerm));
+                    console.log("☁️ Successfully synced data from Cloudflare Storage!");
+                    return true;
+                }
+            }
+        } catch (e) {
+            console.warn("Cloudflare sync notice:", e.message);
+        }
+        return false;
+    }
+
+    async pushToCloudflare() {
+        try {
+            const payload = {
+                items: this.getItems(),
+                logs: this.getLogs(),
+                requesters: this.getRequesters(),
+                auditPerm: this.getAuditPermission(),
+                lastUpdated: new Date().toISOString()
+            };
+            await fetch('/api/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } catch (e) {
+            console.warn("Cloudflare push notice:", e.message);
+        }
+    }
+
     getItems() {
         return JSON.parse(localStorage.getItem(this.STORAGE_KEY_ITEMS) || "[]");
     }
 
     saveItems(items) {
         localStorage.setItem(this.STORAGE_KEY_ITEMS, JSON.stringify(items));
+        this.pushToCloudflare();
     }
 
     getLogs() {
@@ -403,6 +443,7 @@ class StockDatabase {
 
     saveLogs(logs) {
         localStorage.setItem(this.STORAGE_KEY_LOGS, JSON.stringify(logs));
+        this.pushToCloudflare();
     }
 
     getItemByCode(code) {

@@ -32,6 +32,21 @@ class WarehouseApp {
         this.initUI();
         this.initKeyboardScanner();
         this.renderDashboard();
+        this.initCloudflareSync();
+    }
+
+    async initCloudflareSync() {
+        try {
+            const synced = await this.db.syncFromCloudflare();
+            if (synced) {
+                if (this.activeTab === "dashboard") this.renderDashboard();
+                if (this.activeTab === "stock") this.renderStockTable();
+                if (this.activeTab === "alerts") this.renderAlertsPage();
+                if (this.activeTab === "comp") this.renderComparisonPage();
+            }
+        } catch (e) {
+            console.log("Cloudflare sync notice:", e);
+        }
     }
 
     initUI() {
